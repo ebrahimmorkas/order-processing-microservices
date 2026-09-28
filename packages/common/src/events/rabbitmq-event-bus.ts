@@ -39,6 +39,7 @@ export class RabbitMqEventBus implements EventBus {
   readonly kind = 'rabbitmq' as const;
   private readonly consumerChannels: Channel[] = [];
   private readonly pendingRetries = new Set<NodeJS.Timeout>();
+  private closed = false;
 
   private constructor(
     private readonly connection: ChannelModel,
@@ -97,6 +98,19 @@ export class RabbitMqEventBus implements EventBus {
     });
   }
 
+  /**
+   * Runs a channel operation unless the bus is shutting down. After close, the
+   * broker redelivers any unacknowledged message, so skipping is safe.
+   */
+  private safely(action: () => void) {
+    if (this.closed) return;
+    try {
+      action();
+    } catch (err) {
+      this.logger.warn({ err }, 'channel operation skipped (channel closed)');
+    }
+  }
+
   private async handle(
     channel: Channel,
     consumer: string,
@@ -110,29 +124,32 @@ export class RabbitMqEventBus implements EventBus {
       event = JSON.parse(msg.content.toString()) as DomainEvent;
     } catch {
       this.logger.error({ consumer }, 'unparseable message dead-lettered');
-      channel.nack(msg, false, false);
+      this.safely(() => channel.nack(msg, false, false));
       return;
     }
 
     try {
       await handler(event);
-      channel.ack(msg);
+      this.safely(() => channel.ack(msg));
     } catch (err) {
       if (attempts >= maxAttempts) {
         this.logger.error({ consumer, eventId: event.id, err }, 'event dead-lettered');
-        channel.nack(msg, false, false);
+        this.safely(() => channel.nack(msg, false, false));
         return;
       }
+      if (this.closed) return; // unacked: the broker will redeliver it
       const delay = this.options.backoffBaseMs * 2 ** (attempts - 1);
       this.logger.warn({ consumer, eventId: event.id, attempt: attempts, delay }, 'retrying event');
       const timer = setTimeout(() => {
         this.pendingRetries.delete(timer);
-        // Re-queue to this consumer only (not the exchange) so other consumers aren't affected.
-        channel.sendToQueue(consumer, msg.content, {
-          ...msg.properties,
-          headers: { ...msg.properties.headers, [ATTEMPTS_HEADER]: attempts },
+        this.safely(() => {
+          // Re-queue to this consumer only (not the exchange) so other consumers aren't affected.
+          channel.sendToQueue(consumer, msg.content, {
+            ...msg.properties,
+            headers: { ...msg.properties.headers, [ATTEMPTS_HEADER]: attempts },
+          });
+          channel.ack(msg);
         });
-        channel.ack(msg);
       }, delay);
       this.pendingRetries.add(timer);
     }
@@ -144,6 +161,7 @@ export class RabbitMqEventBus implements EventBus {
   }
 
   async close(): Promise<void> {
+    this.closed = true;
     for (const timer of this.pendingRetries) clearTimeout(timer);
     await Promise.allSettled(this.consumerChannels.map((c) => c.close()));
     await this.publishChannel.close().catch(() => undefined);
