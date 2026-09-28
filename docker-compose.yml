@@ -1,0 +1,95 @@
+# MongoDB event bus (no broker needed):
+#   docker compose up --build
+# RabbitMQ event bus:
+#   EVENT_BUS=rabbitmq docker compose --profile rabbitmq up --build
+#
+# Only the gateway is published on the host (http://localhost:8080);
+# internal services are reachable solely on the compose network.
+
+x-service: &service
+  restart: unless-stopped
+  depends_on:
+    mongo:
+      condition: service_healthy
+  environment: &service-env
+    NODE_ENV: production
+    JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me-please-32+}
+    EVENT_BUS: ${EVENT_BUS:-mongo}
+    EVENT_STORE_URL: mongodb://mongo:27017/ops_events
+    RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+
+services:
+  gateway:
+    build: { context: ., args: { SERVICE: gateway } }
+    ports:
+      - '8080:8080'
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me-please-32+}
+      AUTH_URL: http://auth:4001
+      ORDERS_URL: http://orders:4002
+      INVENTORY_URL: http://inventory:4003
+      NOTIFICATIONS_URL: http://notifications:4004
+    depends_on: [auth, orders, inventory, notifications]
+    restart: unless-stopped
+
+  auth:
+    <<: *service
+    build: { context: ., args: { SERVICE: auth } }
+    environment:
+      <<: *service-env
+      PORT: 4001
+      MONGO_URL: mongodb://mongo:27017/ops_auth
+
+  orders:
+    <<: *service
+    build: { context: ., args: { SERVICE: orders } }
+    environment:
+      <<: *service-env
+      PORT: 4002
+      MONGO_URL: mongodb://mongo:27017/ops_orders
+
+  inventory:
+    <<: *service
+    build: { context: ., args: { SERVICE: inventory } }
+    environment:
+      <<: *service-env
+      PORT: 4003
+      MONGO_URL: mongodb://mongo:27017/ops_inventory
+      SEED_CATALOG: 'true'
+
+  notifications:
+    <<: *service
+    build: { context: ., args: { SERVICE: notifications } }
+    environment:
+      <<: *service-env
+      PORT: 4004
+      MONGO_URL: mongodb://mongo:27017/ops_notifications
+
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand("ping")']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    profiles: ['rabbitmq']
+    ports:
+      - '5672:5672'
+      - '15672:15672' # management UI (guest/guest)
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mongodata:
