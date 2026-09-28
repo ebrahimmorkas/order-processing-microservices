@@ -5,3 +5,4 @@ export * from './errors.js';
 export * from './http.js';
 export * from './logger.js';
 export * from './server.js';
+export * from './events/index.js';
