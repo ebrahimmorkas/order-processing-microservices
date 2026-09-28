@@ -1,0 +1,10 @@
+{
+  "name": "@ops/common",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared building blocks: config, logging, HTTP bootstrap, errors, auth context, event bus",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}
