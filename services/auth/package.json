@@ -1,0 +1,11 @@
+{
+  "name": "@ops/auth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Auth service: registration, login, JWT issuing",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node ../../dist/auth/main.js"
+  }
+}
