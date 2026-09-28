@@ -7,7 +7,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const external = Object.keys(pkg.dependencies ?? {});
 const requested = process.argv.slice(2);
-const services = requested.length ? requested : readdirSync('services');
+const services = requested.length
+  ? requested
+  : readdirSync('services', { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
 
 for (const service of services) {
   await build({
