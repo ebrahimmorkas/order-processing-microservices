@@ -1,0 +1,11 @@
+{
+  "name": "@ops/inventory",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Inventory service: catalog, stock reservations, saga participant",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node ../../dist/inventory/main.js"
+  }
+}
