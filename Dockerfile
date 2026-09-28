@@ -2,7 +2,7 @@
 # One image definition for every service:
 #   docker build --build-arg SERVICE=orders -t ops-orders .
 
-FROM node:22-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY packages/common/package.json packages/common/
@@ -21,7 +21,7 @@ COPY services ./services
 # Bundles the service together with the shared @ops/common source.
 RUN node scripts/build.mjs "$SERVICE" && npm prune --omit=dev
 
-FROM node:22-alpine AS runtime
+FROM node:26-alpine AS runtime
 ARG SERVICE
 WORKDIR /app
 ENV NODE_ENV=production \
