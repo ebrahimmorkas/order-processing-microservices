@@ -1,0 +1,11 @@
+{
+  "name": "@ops/notifications",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Notifications service: in-app notifications and emails driven by domain events",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node ../../dist/notifications/main.js"
+  }
+}
