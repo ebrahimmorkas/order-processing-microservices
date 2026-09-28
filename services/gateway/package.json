@@ -1,0 +1,11 @@
+{
+  "name": "@ops/gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API gateway: routing, authentication, rate limiting, health aggregation",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "node ../../dist/gateway/main.js"
+  }
+}
