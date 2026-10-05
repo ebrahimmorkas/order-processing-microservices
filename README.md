@@ -1,10 +1,11 @@
-# Order Processing Microservices
+# Order Processing Microservices + storefront
 
 [![CI](https://github.com/ebrahimmorkas/order-processing-microservices/actions/workflows/ci.yml/badge.svg)](https://github.com/ebrahimmorkas/order-processing-microservices/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-optional-FF6600?logo=rabbitmq&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-database%20per%20service-47A248?logo=mongodb&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
 An event-driven e-commerce backend split into **five Node.js/TypeScript microservices**. It
@@ -15,6 +16,45 @@ actions**, **database-per-service**, and an **API gateway** that centralises aut
 The event bus is pluggable. It uses **RabbitMQ** when available and falls back to a durable
 **MongoDB-backed queue**, so the whole system runs with nothing but MongoDB. CI runs the full
 suite, including an end-to-end saga test, on **both** transports.
+
+A **React + TypeScript storefront** in [`client/`](client) puts a face on the saga: place an
+order and watch it move from _Pending_ to _Confirmed_ or _Rejected_ as the services react.
+
+![An order confirmed by the saga](docs/screenshots/order-confirmed.png)
+
+## Web client (Parcel)
+
+| Catalog and cart                                     | Order rejected by the inventory service          |
+| ---------------------------------------------------- | ------------------------------------------------ |
+| ![Shop](docs/screenshots/shop.png)                   | ![Rejected](docs/screenshots/order-rejected.png) |
+| **Notifications from the saga**                      | **Live health of every service**                 |
+| ![Notifications](docs/screenshots/notifications.png) | ![Status](docs/screenshots/status.png)           |
+
+What it does:
+
+- **Catalog and cart** with live stock levels. The cart is kept in `localStorage`.
+- **Asynchronous checkout:** `POST /api/orders` answers `202 Pending` right away. The order page
+  then polls until the saga finishes, and shows each step with the service that performed it
+  (orders → inventory → orders). A rejection shows the reason, e.g. "Insufficient stock for
+  LT-01".
+- **Safe retries:** every checkout attempt sends an `Idempotency-Key`, so a double click or a
+  retry can't create two orders.
+- **Cancel an order** and see the stock return to the catalog (the compensating action).
+- **Notifications** written by the notifications service appear in the bell menu.
+- **System page** showing whether each service behind the gateway is up, refreshed every five
+  seconds.
+- "Continue as demo user" logs in without a seed script: the account is created on first use.
+
+How it is built: React 19, TypeScript, Vite, React Router, Tailwind CSS v4, React Hook Form +
+Zod, and TanStack Query, whose `refetchInterval` polls only while an order is pending. The cart
+and the saga timeline are pure functions with unit tests. The client talks only to the gateway.
+
+```bash
+# with the five services running (see Getting started), in another terminal:
+cd client
+npm install
+npm run dev        # http://localhost:5177, /api is proxied to the gateway on :8080
+```
 
 ## Architecture
 
