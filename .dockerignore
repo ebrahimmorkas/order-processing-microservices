@@ -11,3 +11,4 @@ test
 *.log
 Dockerfile
 docker-compose.yml
+client
